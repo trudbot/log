@@ -22,7 +22,7 @@ function isValidIP(ip: string): boolean {
     return false;
 }
 
-export function GET(request: Request) {
+export function POST(request: Request) {
     const ip = ipAddress(request) || '';
     const geo = geolocation(request) || {};
     const timestamp = Date.now();
