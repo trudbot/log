@@ -12,9 +12,12 @@
   "devDependencies": {
     "@types/node": "^22.7.9",
     "@vercel/node": "^3.2.23",
+    "@vercel/postgres-kysely": "^0.10.0",
+    "kysely": "^0.27.4",
     "typescript": "^5.6.3"
   },
   "dependencies": {
-    "@vercel/functions": "^1.4.2"
+    "@vercel/functions": "^1.4.2",
+    "@vercel/postgres": "^0.10.0"
   }
 }
