@@ -1,19 +1,18 @@
 {
+    "rewrites": [
+        { "source": "/log", "destination": "/api/log" }
+    ],
     "headers": [
         {
-            "source": "/api/(.*)",
+            "source": "/(log|api/(.*))",
             "headers": [
-                {
-                    "key": "Content-Security-Policy",
-                    "value": "default-src 'self'; connect-src 'self' https://log-ecru-psi.vercel.app"
-                },
                 {
                     "key": "Access-Control-Allow-Origin",
                     "value": "*"
                 },
                 {
                     "key": "Access-Control-Allow-Methods",
-                    "value": "GET, POST, PUT, DELETE, OPTIONS"
+                    "value": "GET, POST, OPTIONS"
                 },
                 {
                     "key": "Access-Control-Allow-Headers",
