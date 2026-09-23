@@ -111,6 +111,9 @@ params — because it is world-readable (the browser dashboard calls it directly
 `pages` auto-groups `page_view` display events by `params.page` (top 30 by
 total), giving one time series per page for a line-per-page chart.
 
+`articles` ranks blog posts read in the window by `article_view` count
+(`reads`, plus distinct-`sid` `readers`), ordered high to low.
+
 ## Development
 
 ```bash

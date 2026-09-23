@@ -79,6 +79,14 @@ interface PageSeriesRow {
     count: number;
 }
 
+interface ArticleRow {
+    page: string | null;
+    title: string | null;
+    id: string | null;
+    reads: number;
+    readers: number;
+}
+
 export function OPTIONS(): Response {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -183,6 +191,23 @@ export async function GET(request: Request): Promise<Response> {
             GROUP BY page, date
         `.execute(db);
 
+        // Article read ranking for the window. article_view is emitted only by
+        // the blog, so no host filter is needed to isolate blog articles.
+        const articleRows = await sql<ArticleRow>`
+            SELECT params->>'page' AS page,
+                   max(params->>'title') AS title,
+                   max(params->>'id') AS id,
+                   count(*)::int AS reads,
+                   count(DISTINCT params->>'sid')::int AS readers
+            FROM log_record
+            WHERE created_at >= ${from}
+              AND type = 'display'
+              AND params->>'name' = 'article_view'
+            GROUP BY params->>'page'
+            ORDER BY reads DESC
+            LIMIT 100
+        `.execute(db);
+
         const dayList = axis.rows.map((row) => row.date);
         const countAt = new Map<string, number>();
         for (const row of series.rows) {
@@ -243,6 +268,14 @@ export async function GET(request: Request): Promise<Response> {
             };
         });
 
+        const articles = articleRows.rows.map((row) => ({
+            page: row.page ?? UNKNOWN_PAGE,
+            title: row.title ?? row.page ?? UNKNOWN_PAGE,
+            id: row.id,
+            reads: row.reads,
+            readers: row.readers,
+        }));
+
         return json({
             ok: true,
             range: {
@@ -256,6 +289,7 @@ export async function GET(request: Request): Promise<Response> {
             points,
             durations: durationList,
             pages: { host, items: pages },
+            articles,
         });
     } catch (error) {
         console.error('[query] failed to aggregate log records', error);
