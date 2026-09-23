@@ -67,6 +67,38 @@ psql "$POSTGRES_URL" -f migrations/0001_init.sql
 All events live in one `log_record` table, discriminated by `type`, with the
 open-ended `params` and `location` stored as JSONB.
 
+## Query API
+
+Read-only aggregates for dashboards:
+
+```
+GET /query?days=30&tz=Asia/Shanghai
+```
+
+- `days` — window size, clamped to `[1, 365]` (default 30).
+- `tz` — IANA timezone used to bucket days (default `UTC`).
+
+Returns per-point totals and a gap-free daily series, plus reading-time stats
+for duration events (dwell is de-duplicated by taking `MAX(dwell_ms)` per
+`sid`). The response contains only aggregates — no IPs, geolocation, or raw
+params — because it is world-readable (the browser dashboard calls it directly).
+
+```jsonc
+{
+  "range": { "from": "…", "to": "…", "days": 30, "tz": "Asia/Shanghai", "bucket": "day" },
+  "totals": { "all": 0, "display": 0, "exposure": 0, "click": 0 },
+  "points": [
+    { "key": "display:page_view", "type": "display", "name": "page_view",
+      "total": 0, "firstAt": "…", "lastAt": "…",
+      "series": [ { "date": "2026-09-01", "count": 0 } ] }
+  ],
+  "durations": [
+    { "key": "display:article_duration", "type": "display", "name": "article_duration",
+      "visits": 0, "avgMs": 0, "p50Ms": 0, "p90Ms": 0 }
+  ]
+}
+```
+
 ## Development
 
 ```bash
