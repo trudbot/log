@@ -122,8 +122,8 @@ export async function GET(request: Request): Promise<Response> {
                        max((params->>'dwell_ms')::bigint) AS dwell
                 FROM log_record
                 WHERE created_at >= ${from}
-                  AND params ? 'dwell_ms'
-                  AND params ? 'sid'
+                  AND params->>'dwell_ms' IS NOT NULL
+                  AND params->>'sid' IS NOT NULL
                 GROUP BY type, params->>'name', params->>'sid'
             )
             SELECT type,
@@ -195,6 +195,9 @@ export async function GET(request: Request): Promise<Response> {
         });
     } catch (error) {
         console.error('[query] failed to aggregate log records', error);
-        return json({ ok: false, error: 'query_failed' }, 500);
+        // Surface the underlying cause so a misconfigured DB / missing table is
+        // self-diagnosing from the response instead of an opaque 500.
+        const message = error instanceof Error ? error.message : String(error);
+        return json({ ok: false, error: 'query_failed', message }, 500);
     }
 }
