@@ -48,6 +48,7 @@ interface SummaryRow {
     type: LogType;
     name: string | null;
     total: number;
+    uv: number;
     first_at: Date | string;
     last_at: Date | string;
 }
@@ -101,11 +102,13 @@ export async function GET(request: Request): Promise<Response> {
     const from = new Date(Date.now() - days * 86_400_000);
 
     try {
-        // Per-point totals across the window.
+        // Per-point totals across the window. UV falls back to sid for events
+        // sent before the persistent uid existed, same as article readers.
         const summary = await sql<SummaryRow>`
             SELECT type,
                    params->>'name' AS name,
                    count(*)::int AS total,
+                   count(DISTINCT coalesce(params->>'uid', params->>'sid'))::int AS uv,
                    min(created_at) AS first_at,
                    max(created_at) AS last_at
             FROM log_record
@@ -225,6 +228,7 @@ export async function GET(request: Request): Promise<Response> {
                 type: row.type,
                 name,
                 total: row.total,
+                uv: row.uv,
                 firstAt: toIso(row.first_at),
                 lastAt: toIso(row.last_at),
                 series: seriesForPoint,
