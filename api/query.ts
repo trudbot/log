@@ -198,7 +198,7 @@ export async function GET(request: Request): Promise<Response> {
                    max(params->>'title') AS title,
                    max(params->>'id') AS id,
                    count(*)::int AS reads,
-                   count(DISTINCT params->>'sid')::int AS readers
+                   count(DISTINCT coalesce(params->>'uid', params->>'sid'))::int AS readers
             FROM log_record
             WHERE created_at >= ${from}
               AND type = 'display'

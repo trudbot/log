@@ -112,7 +112,8 @@ params — because it is world-readable (the browser dashboard calls it directly
 total), giving one time series per page for a line-per-page chart.
 
 `articles` ranks blog posts read in the window by `article_view` count
-(`reads`, plus distinct-`sid` `readers`), ordered high to low.
+(`reads`, plus `readers` = distinct visitor, preferring the FingerprintJS
+`uid` and falling back to `sid`), ordered high to low.
 
 ## Development
 
