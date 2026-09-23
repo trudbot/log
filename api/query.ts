@@ -68,6 +68,17 @@ interface DurationRow {
     p90_ms: number | null;
 }
 
+interface PageTotalRow {
+    page: string | null;
+    total: number;
+}
+
+interface PageSeriesRow {
+    page: string | null;
+    date: string;
+    count: number;
+}
+
 export function OPTIONS(): Response {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -76,6 +87,9 @@ export async function GET(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const days = clampInt(url.searchParams.get('days'), 30, 1, 365);
     const tz = sanitizeTz(url.searchParams.get('tz'));
+    // Optional site scope for the per-page breakdown. Bound as a parameter, so
+    // it is injection-safe; the length cap just avoids absurd input.
+    const host = url.searchParams.get('host')?.slice(0, 128) || null;
     const from = new Date(Date.now() - days * 86_400_000);
 
     try {
@@ -140,6 +154,35 @@ export async function GET(request: Request): Promise<Response> {
             ORDER BY visits DESC
         `.execute(db);
 
+        // Per-page view counts, auto-grouped by params.page. Scoped to
+        // page_view display events, optionally filtered to one site via host.
+        const pageTotals = await sql<PageTotalRow>`
+            SELECT params->>'page' AS page, count(*)::int AS total
+            FROM log_record
+            WHERE created_at >= ${from}
+              AND type = 'display'
+              AND params->>'name' = 'page_view'
+              AND (${host}::text IS NULL OR params->>'host' = ${host})
+            GROUP BY params->>'page'
+            ORDER BY total DESC
+            LIMIT 30
+        `.execute(db);
+
+        const pageSeries = await sql<PageSeriesRow>`
+            WITH ev AS (
+                SELECT params->>'page' AS page,
+                       (created_at AT TIME ZONE ${tz})::date::text AS date
+                FROM log_record
+                WHERE created_at >= ${from}
+                  AND type = 'display'
+                  AND params->>'name' = 'page_view'
+                  AND (${host}::text IS NULL OR params->>'host' = ${host})
+            )
+            SELECT page, date, count(*)::int AS count
+            FROM ev
+            GROUP BY page, date
+        `.execute(db);
+
         const dayList = axis.rows.map((row) => row.date);
         const countAt = new Map<string, number>();
         for (const row of series.rows) {
@@ -183,6 +226,23 @@ export async function GET(request: Request): Promise<Response> {
             };
         });
 
+        const UNKNOWN_PAGE = '(unknown)';
+        const pageCountAt = new Map<string, number>();
+        for (const row of pageSeries.rows) {
+            pageCountAt.set(`${row.page ?? ''}\u0000${row.date}`, row.count);
+        }
+        const pages = pageTotals.rows.map((row) => {
+            const page = row.page ?? UNKNOWN_PAGE;
+            return {
+                page,
+                total: row.total,
+                series: dayList.map((date) => ({
+                    date,
+                    count: pageCountAt.get(`${row.page ?? ''}\u0000${date}`) ?? 0,
+                })),
+            };
+        });
+
         return json({
             ok: true,
             range: {
@@ -195,6 +255,7 @@ export async function GET(request: Request): Promise<Response> {
             totals,
             points,
             durations: durationList,
+            pages: { host, items: pages },
         });
     } catch (error) {
         console.error('[query] failed to aggregate log records', error);

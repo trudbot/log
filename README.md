@@ -77,6 +77,8 @@ GET /query?days=30&tz=Asia/Shanghai
 
 - `days` — window size, clamped to `[1, 365]` (default 30).
 - `tz` — IANA timezone used to bucket days (default `UTC`).
+- `host` — optional; scopes the per-page breakdown to events whose
+  `params.host` matches (e.g. one site sharing the endpoint).
 
 Returns per-point totals and a gap-free daily series, plus reading-time stats
 for duration events (dwell is de-duplicated by taking `MAX(dwell_ms)` per
@@ -95,9 +97,19 @@ params — because it is world-readable (the browser dashboard calls it directly
   "durations": [
     { "key": "display:article_duration", "type": "display", "name": "article_duration",
       "visits": 0, "avgMs": 0, "p50Ms": 0, "p90Ms": 0 }
-  ]
+  ],
+  "pages": {
+    "host": "trudbot.github.io",
+    "items": [
+      { "page": "/json", "total": 0,
+        "series": [ { "date": "2026-09-01", "count": 0 } ] }
+    ]
+  }
 }
 ```
+
+`pages` auto-groups `page_view` display events by `params.page` (top 30 by
+total), giving one time series per page for a line-per-page chart.
 
 ## Development
 
