@@ -94,13 +94,16 @@ export async function GET(request: Request): Promise<Response> {
 
         // Daily counts per point, bucketed in the requested timezone.
         const series = await sql<SeriesRow>`
-            SELECT type,
-                   params->>'name' AS name,
-                   (created_at AT TIME ZONE ${tz})::date::text AS date,
-                   count(*)::int AS count
-            FROM log_record
-            WHERE created_at >= ${from}
-            GROUP BY type, params->>'name', (created_at AT TIME ZONE ${tz})::date
+            WITH ev AS (
+                SELECT type,
+                       params->>'name' AS name,
+                       (created_at AT TIME ZONE ${tz})::date::text AS date
+                FROM log_record
+                WHERE created_at >= ${from}
+            )
+            SELECT type, name, date, count(*)::int AS count
+            FROM ev
+            GROUP BY type, name, date
         `.execute(db);
 
         // Authoritative, gap-free day axis so every point charts a full window.
